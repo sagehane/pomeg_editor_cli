@@ -13,30 +13,28 @@ fn calculate_checksum(sector: &[u8]) -> u16 {
         checksum = checksum.wrapping_add(LittleEndian::read_u32(&sector[i..i + 4]));
     }
 
-    ((checksum >> 16) as u16)
-        .wrapping_add(checksum as u16)
-        .swap_bytes()
+    ((checksum >> 16) as u16).wrapping_add(checksum as u16)
 }
 
 /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
 /// offset of 0xff4 with the value from `calculate_checksum`.
 fn check_sector(sector_id: u8, content: &Vec<u8>) -> bool {
-    let mut is_valid = false;
+    let sector_offset: usize = (sector_id as usize) << 12;
 
     let calculated_checksum = calculate_checksum(
-        &content[(sector_id as usize) << 12
-            ..((sector_id as usize) << 12)
-                + SECTOR_SIZE[*&content[((sector_id as usize) << 12) + 0xff4] as usize] as usize],
+        &content[sector_offset
+            ..sector_offset + SECTOR_SIZE[*&content[(sector_offset) + 0xff4] as usize] as usize],
     );
 
-    let checksum = ((content[((sector_id as usize) << 12) + 0xff6] as u16) << 8)
-        + content[((sector_id as usize) << 12) + 0xff7] as u16;
+    let checksum = LittleEndian::read_u16(
+        &content[(sector_offset) + 0xff6 as usize..(sector_offset) + 0xff8 as usize],
+    );
 
     if calculated_checksum == checksum {
-        is_valid = true;
+        return true;
     }
 
-    is_valid
+    false
 }
 
 /// Checks if the save file has the correct checksum. Currently only checks through sectors 0 to
