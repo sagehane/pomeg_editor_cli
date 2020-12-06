@@ -18,7 +18,7 @@ fn calculate_checksum(sector: &[u8]) -> u16 {
 
 /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
 /// offset of 0xff4 with the value from `calculate_checksum`.
-fn check_sector(sector_id: u8, content: &Vec<u8>) -> bool {
+fn is_valid_sector(sector_id: u8, content: &Vec<u8>) -> bool {
     let sector_offset: usize = (sector_id as usize) << 12;
 
     let calculated_checksum = calculate_checksum(
@@ -30,22 +30,26 @@ fn check_sector(sector_id: u8, content: &Vec<u8>) -> bool {
         &content[(sector_offset) + 0xff6 as usize..(sector_offset) + 0xff8 as usize],
     );
 
-    if calculated_checksum == checksum {
-        return true;
+    if calculated_checksum != checksum {
+        return false;
     }
 
-    false
+    true
 }
 
 /// Checks if the save file has the correct checksum. Currently only checks through sectors 0 to
 /// 28, leaving 29 to 31 unchecked.
-pub fn check_save(content: &Vec<u8>) -> bool {
+pub fn is_valid_save(content: &Vec<u8>) -> bool {
     if content.len() != 2_usize.pow(17) {
+        eprintln!("The savefile is not 128 KiB in size");
+
         return false;
     }
 
     for i in 0..28 {
-        if check_sector(i, content) == false {
+        if !is_valid_sector(i, content) {
+            eprintln!("Sector {} has an invalid checksum", i);
+
             return false;
         }
     }
