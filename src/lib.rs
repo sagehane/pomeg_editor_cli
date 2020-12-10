@@ -31,6 +31,10 @@ fn calculate_checksum(sector: &[u8]) -> u16 {
     ((checksum >> 16) as u16).wrapping_add(checksum as u16)
 }
 
+fn get_save_index(sector: &[u8]) -> u32 {
+    LittleEndian::read_u32(&sector[0x0FFC..0x1000])
+}
+
 /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
 /// offset of 0xff4 with the value from `calculate_checksum`.
 fn is_valid_sector(sector: &[u8]) -> bool {
@@ -49,12 +53,45 @@ fn is_valid_sector(sector: &[u8]) -> bool {
 /// Checks if the save file has the correct checksum. Currently only checks through sectors 0 to
 /// 27, leaving 28 to 31 unchecked.
 pub fn is_valid_save(buffer: &[u8]) -> bool {
+    let mut save_index: u32 = get_save_index(buffer_to_sector(0, buffer));
+    let mut is_slot_a = true;
+
     for sector_id in 0..27 {
+        if sector_id == 14 {
+            let retrieved_index = get_save_index(buffer_to_sector(sector_id, buffer));
+
+            if retrieved_index == save_index {
+                eprintln!("Slot A and B has the same save_index");
+
+                return false;
+            } else if retrieved_index > save_index {
+                is_slot_a = false;
+            }
+
+            save_index = retrieved_index;
+        } else if sector_id != 0
+            && save_index != get_save_index(buffer_to_sector(sector_id, buffer))
+        {
+            eprintln!(
+                "Sector {} has an invalid save_index, expected \"{}\" but got \"{}\"",
+                sector_id,
+                save_index,
+                get_save_index(buffer_to_sector(sector_id, buffer))
+            );
+
+            return false;
+        }
+
         if !is_valid_sector(buffer_to_sector(sector_id, buffer)) {
             eprintln!("Sector {} has an invalid checksum", sector_id);
 
             return false;
         }
+    }
+
+    match is_slot_a {
+        true => println!("Save is stored in slot A"),
+        false => println!("Save is stored in slot B"),
     }
 
     true
