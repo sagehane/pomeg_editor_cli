@@ -3,19 +3,9 @@ use byteorder::{ByteOrder, LittleEndian};
 
 mod checksum;
 
-const SECTOR_SIZE: [u16; 14] = [
-    3884, 3968, 3968, 3968, 3848, 3968, 3968, 3968, 3968, 3968, 3968, 3968, 3968, 2000,
-];
-
 #[derive(Debug)]
 pub struct Gen3Save {
     save_slot: SaveSlot,
-}
-
-#[derive(Debug)]
-enum SaveSlot {
-    A = 0,
-    B = 1,
 }
 
 impl Gen3Save {
@@ -33,6 +23,21 @@ impl Gen3Save {
     }
 }
 
+#[derive(Debug)]
+enum SaveSlot {
+    A = 0,
+    B = 1,
+}
+
+impl SaveSlot {
+    fn sector_offset(&self, sector_id: u8) -> u8 {
+        match self {
+            SaveSlot::A => sector_id,
+            SaveSlot::B => sector_id + 14,
+        }
+    }
+}
+
 /// Find out the slot from given buffer
 fn slot_from_buffer(buffer: &[u8; 0x20000]) -> Option<SaveSlot> {
     let mut save_index: u32 = get_save_index(sector_by_id(0, buffer));
@@ -42,9 +47,9 @@ fn slot_from_buffer(buffer: &[u8; 0x20000]) -> Option<SaveSlot> {
         let retrieved_index = get_save_index(sector_by_id(sector_id, buffer));
 
         if sector_id == 14 {
-            if retrieved_index < save_index {
+            if save_index != std::u32::MAX && retrieved_index < save_index {
                 save_slot = Some(SaveSlot::A);
-            } else if retrieved_index > save_index {
+            } else if save_index == std::u32::MAX || retrieved_index > save_index {
                 save_slot = Some(SaveSlot::B);
             } else {
                 eprintln!("Slot A and B has the same save_index");
@@ -81,7 +86,7 @@ fn sector_by_id(sector_id: u8, buffer: &[u8]) -> &[u8] {
         panic!("Sector must be between 0 and 31")
     }
 
-    let sector_offset: usize = (sector_id as usize) << 12;
+    let offset: usize = (sector_id as usize) << 12;
 
-    &buffer[sector_offset..sector_offset + 0x1000]
+    &buffer[offset..offset + 0x1000]
 }
