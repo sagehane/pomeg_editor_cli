@@ -6,6 +6,7 @@ mod checksum;
 #[derive(Debug)]
 pub struct Gen3Save {
     save_slot: SaveSlot,
+    trainer_id: TrainerID,
 }
 
 impl Gen3Save {
@@ -19,7 +20,12 @@ impl Gen3Save {
             panic!("Checksum is invalid");
         }
 
-        Gen3Save { save_slot }
+        let trainer_id = TrainerID::from_sector(sector_by_id(save_slot.sector_offset(1), buffer));
+
+        Gen3Save {
+            save_slot,
+            trainer_id,
+        }
     }
 }
 
@@ -35,6 +41,21 @@ impl SaveSlot {
             SaveSlot::A => sector_id,
             SaveSlot::B => sector_id + 14,
         }
+    }
+}
+
+#[derive(Debug)]
+struct TrainerID {
+    public: u16,
+    secret: u16,
+}
+
+impl TrainerID {
+    fn from_sector(sector: &[u8]) -> Self {
+        let public = LittleEndian::read_u16(&sector[0xA..0xC]);
+        let secret = LittleEndian::read_u16(&sector[0xD..0xF]);
+
+        TrainerID { public, secret }
     }
 }
 
