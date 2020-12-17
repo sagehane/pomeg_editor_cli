@@ -1,5 +1,5 @@
 use crate::checksum::is_valid_checksum;
-pub use crate::save::{FromBuffer, Save, Sector};
+pub use crate::save::{DataStructure, Save, Sector};
 use byteorder::{ByteOrder, LittleEndian};
 use std::convert::TryInto;
 
