@@ -73,13 +73,13 @@ fn slot_from_save(save: Save) -> Option<SaveSlot> {
     let mut save_index: u32 = get_save_index(save[0]);
     let mut save_slot = None;
 
-    for sector_id in 0..27 {
+    for sector_id in 0..28 {
         let retrieved_index = get_save_index(save[sector_id]);
 
         if sector_id == 14 {
-            if save_index != std::u32::MAX && retrieved_index < save_index {
+            if save_index != u32::MAX && retrieved_index < save_index {
                 save_slot = Some(SaveSlot::A);
-            } else if save_index == std::u32::MAX || retrieved_index > save_index {
+            } else if save_index == u32::MAX || retrieved_index > save_index {
                 save_slot = Some(SaveSlot::B);
             } else {
                 eprintln!("Slot A and B has the same save_index");
