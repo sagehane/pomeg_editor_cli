@@ -1,6 +1,6 @@
 use std::{fs, io::Read};
 
-use libpomeg::Gen3Save;
+use libpomeg::{FromBuffer, Save, SaveStruct};
 
 fn main() {
     let file = std::env::args().nth(1).expect("no file given"); // The program expects a file for an argument
@@ -16,7 +16,7 @@ fn main() {
         .read_exact(&mut buffer[..])
         .expect("could not read file");
 
-    let gen3save = Gen3Save::from_buffer(&buffer);
+    let gen3save = SaveStruct::from_save(Save::from_buffer(buffer));
 
     println!("{:?}", gen3save);
 }

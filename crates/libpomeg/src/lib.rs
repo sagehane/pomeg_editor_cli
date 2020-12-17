@@ -1,30 +1,39 @@
 use crate::checksum::is_valid_checksum;
+pub use crate::save::{FromBuffer, Save, Sector};
 use byteorder::{ByteOrder, LittleEndian};
+use std::convert::TryInto;
 
 mod checksum;
+mod save;
 
 #[derive(Debug)]
-pub struct Gen3Save {
+pub struct SaveStruct {
     save_slot: SaveSlot,
     trainer_id: TrainerID,
+    trainer_name: [u8; 7],
 }
 
-impl Gen3Save {
-    pub fn from_buffer(buffer: &[u8; 0x20000]) -> Self {
-        let save_slot = match slot_from_buffer(buffer) {
+impl SaveStruct {
+    pub fn from_save(save: Save) -> Self {
+        let save_slot = match slot_from_save(save) {
             Some(s) => s,
             None => panic!("No valid save slot"),
         };
 
-        if !is_valid_checksum(buffer) {
+        if !is_valid_checksum(save) {
             panic!("Checksum is invalid");
         }
 
-        let trainer_id = TrainerID::from_sector(sector_by_id(save_slot.sector_offset(1), buffer));
+        let trainer_id = TrainerID::from_sector(save[save_slot.sector_offset(1) as usize]);
 
-        Gen3Save {
+        let trainer_name = save[save_slot.sector_offset(1) as usize][0..7]
+            .try_into()
+            .unwrap();
+
+        SaveStruct {
             save_slot,
             trainer_id,
+            trainer_name,
         }
     }
 }
@@ -51,7 +60,7 @@ struct TrainerID {
 }
 
 impl TrainerID {
-    fn from_sector(sector: &[u8]) -> Self {
+    fn from_sector(sector: Sector) -> Self {
         let public = LittleEndian::read_u16(&sector[0xA..0xC]);
         let secret = LittleEndian::read_u16(&sector[0xD..0xF]);
 
@@ -59,13 +68,13 @@ impl TrainerID {
     }
 }
 
-/// Find out the slot from given buffer
-fn slot_from_buffer(buffer: &[u8; 0x20000]) -> Option<SaveSlot> {
-    let mut save_index: u32 = get_save_index(sector_by_id(0, buffer));
+/// Find out the slot from given save
+fn slot_from_save(save: Save) -> Option<SaveSlot> {
+    let mut save_index: u32 = get_save_index(save[0]);
     let mut save_slot = None;
 
     for sector_id in 0..27 {
-        let retrieved_index = get_save_index(sector_by_id(sector_id, buffer));
+        let retrieved_index = get_save_index(save[sector_id]);
 
         if sector_id == 14 {
             if save_index != std::u32::MAX && retrieved_index < save_index {
@@ -93,21 +102,6 @@ fn slot_from_buffer(buffer: &[u8; 0x20000]) -> Option<SaveSlot> {
 }
 
 /// Gets the save index from a sector
-fn get_save_index(sector: &[u8]) -> u32 {
+fn get_save_index(sector: Sector) -> u32 {
     LittleEndian::read_u32(&sector[0x0FFC..0x1000])
-}
-
-/// Take an buffer and id to return a sector in the form of a slice
-///
-/// # Panics
-///
-/// Panics when `sector_id > 31`
-fn sector_by_id(sector_id: u8, buffer: &[u8]) -> &[u8] {
-    if sector_id > 31 {
-        panic!("Sector must be between 0 and 31")
-    }
-
-    let offset: usize = (sector_id as usize) << 12;
-
-    &buffer[offset..offset + 0x1000]
 }
