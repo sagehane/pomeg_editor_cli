@@ -1,16 +1,17 @@
 use crate::checksum::is_valid_checksum;
+use crate::encoding::slice_to_string;
 pub use crate::save::{DataStructure, Save, Sector};
 use byteorder::{ByteOrder, LittleEndian};
-use std::convert::TryInto;
 
 mod checksum;
+mod encoding;
 mod save;
 
 #[derive(Debug)]
 pub struct SaveStruct {
     save_slot: SaveSlot,
     trainer_id: TrainerID,
-    trainer_name: [u8; 7],
+    trainer_name: String,
 }
 
 impl SaveStruct {
@@ -26,9 +27,7 @@ impl SaveStruct {
 
         let trainer_id = TrainerID::from_sector(save[save_slot.sector_offset(1) as usize]);
 
-        let trainer_name = save[save_slot.sector_offset(1) as usize][0..=6]
-            .try_into()
-            .unwrap();
+        let trainer_name = slice_to_string(&save[save_slot.sector_offset(1) as usize][0..=6]);
 
         SaveStruct {
             save_slot,
