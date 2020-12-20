@@ -26,7 +26,7 @@ impl SaveStruct {
 
         let trainer_id = TrainerID::from_sector(save[save_slot.sector_offset(1) as usize]);
 
-        let trainer_name = save[save_slot.sector_offset(1) as usize][0..7]
+        let trainer_name = save[save_slot.sector_offset(1) as usize][0..=6]
             .try_into()
             .unwrap();
 
@@ -61,8 +61,8 @@ struct TrainerID {
 
 impl TrainerID {
     fn from_sector(sector: Sector) -> Self {
-        let public = LittleEndian::read_u16(&sector[0xA..0xC]);
-        let secret = LittleEndian::read_u16(&sector[0xD..0xF]);
+        let public = LittleEndian::read_u16(&sector[0xA..=0xB]);
+        let secret = LittleEndian::read_u16(&sector[0xD..=0xE]);
 
         TrainerID { public, secret }
     }
@@ -73,7 +73,7 @@ fn slot_from_save(save: Save) -> Option<SaveSlot> {
     let mut save_index: u32 = get_save_index(save[0]);
     let mut save_slot = None;
 
-    for sector_id in 0..28 {
+    for sector_id in 0..=27 {
         let retrieved_index = get_save_index(save[sector_id]);
 
         if sector_id == 14 {
@@ -103,5 +103,5 @@ fn slot_from_save(save: Save) -> Option<SaveSlot> {
 
 /// Gets the save index from a sector
 fn get_save_index(sector: Sector) -> u32 {
-    LittleEndian::read_u32(&sector[0x0FFC..0x1000])
+    LittleEndian::read_u32(&sector[0x0FFC..=0x0FFF])
 }

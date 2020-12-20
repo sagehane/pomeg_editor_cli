@@ -16,7 +16,7 @@ impl DataStructure for Save {
     fn from_slice(slice: &[u8]) -> Self {
         let mut save = Save::new();
 
-        for sector_id in 0..32 {
+        for sector_id in 0..=31 {
             let offset = sector_id << 12;
             save[sector_id] = Sector::from_slice(&slice[offset..offset + 0x1000]);
         }

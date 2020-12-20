@@ -8,7 +8,7 @@ const SECTOR_SIZE: [u16; 14] = [
 /// Checks if the save file has the correct checksum. Currently only checks through sectors 0 to
 /// 27, leaving 28 to 31 unchecked.
 pub fn is_valid_checksum(buffer: Save) -> bool {
-    for sector_id in 0..32 {
+    for sector_id in 0..=31 {
         if !is_valid_sector(buffer[sector_id]) {
             eprintln!("Sector {} has an invalid checksum", sector_id);
 
@@ -33,7 +33,7 @@ fn is_valid_sector(sector: Sector) -> bool {
     let calculated_checksum =
         calculate_checksum(&sector[..SECTOR_SIZE[section_id as usize] as usize]);
 
-    let checksum = LittleEndian::read_u16(&sector[0xFF6..0xFF8]);
+    let checksum = LittleEndian::read_u16(&sector[0xFF6..=0xFF7]);
 
     if calculated_checksum != checksum {
         return false;
