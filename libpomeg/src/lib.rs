@@ -93,6 +93,8 @@ struct SlotStruct {
 
 impl SlotStruct {
     fn from_slot(slot: Slot) -> Self {
+        let mut passed_checksum = 0;
+
         let mut slot_struct = Self {
             counter: 0,
             status: SaveStatus::Empty,
@@ -104,18 +106,19 @@ impl SlotStruct {
             if LittleEndian::read_u32(&sector[0xFF8..=0xFFB]) == SECURITY_VALUE {
                 security_passed = true;
 
-                if !is_valid_sector(sector) {
-                    slot_struct.counter = get_save_counter(&slot[slot.len() - 1]);
-                    slot_struct.status = SaveStatus::Corrupt;
-
-                    return slot_struct;
+                if is_valid_sector(sector) {
+                    slot_struct.counter = get_save_counter(sector);
+                    passed_checksum += 1;
                 }
             }
         }
 
         if security_passed {
-            slot_struct.counter = get_save_counter(&slot[slot.len() - 1]);
-            slot_struct.status = SaveStatus::Valid;
+            if passed_checksum == slot.len() {
+                slot_struct.status = SaveStatus::Valid;
+            } else {
+                slot_struct.status = SaveStatus::Corrupt;
+            }
         }
 
         slot_struct
