@@ -6,6 +6,12 @@ pub trait DataStructure {
     fn from_slice(slice: &[u8]) -> Self;
 }
 
+pub trait ToSlot {
+    fn to_slot_a(&self) -> Slot;
+
+    fn to_slot_b(&self) -> Slot;
+}
+
 pub type Save = [Sector; 0x20];
 
 impl DataStructure for Save {
@@ -25,6 +31,16 @@ impl DataStructure for Save {
     }
 }
 
+impl ToSlot for Save {
+    fn to_slot_a(&self) -> Slot {
+        self[0..=13].try_into().unwrap()
+    }
+
+    fn to_slot_b(&self) -> Slot {
+        self[14..=27].try_into().unwrap()
+    }
+}
+
 pub type Sector = [u8; 0x1000];
 
 impl DataStructure for Sector {
@@ -36,3 +52,5 @@ impl DataStructure for Sector {
         slice.try_into().unwrap()
     }
 }
+
+pub type Slot = [Sector; 14];

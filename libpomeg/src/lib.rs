@@ -1,36 +1,31 @@
-use crate::checksum::is_valid_checksum;
+use crate::checksum::is_valid_sector;
 use crate::encoding::slice_to_string;
-pub use crate::save::{DataStructure, Save, Sector};
+pub use crate::save::{DataStructure, Save, Sector, Slot, ToSlot};
 use byteorder::{ByteOrder, LittleEndian};
 
 mod checksum;
 mod encoding;
 mod save;
 
+const SECURITY_VALUE: u32 = 0x8012025;
+
 #[derive(Debug)]
 pub struct SaveStruct {
-    save_slot: SaveSlot,
+    slot_info: SlotInfo,
     trainer_id: TrainerID,
     trainer_name: String,
 }
 
 impl SaveStruct {
     pub fn from_save(save: Save) -> Self {
-        let save_slot = match slot_from_save(save) {
-            Some(s) => s,
-            None => panic!("No valid save slot"),
-        };
+        let slot_info = SlotInfo::from_save(save);
 
-        if !is_valid_checksum(save) {
-            panic!("Checksum is invalid");
-        }
+        let trainer_id = TrainerID::from_sector(save[slot_info.slot_used.unwrap() as usize + 1]);
 
-        let trainer_id = TrainerID::from_sector(save[save_slot.sector_offset(1) as usize]);
+        let trainer_name = slice_to_string(&save[slot_info.slot_used.unwrap() as usize + 1][0..=6]);
 
-        let trainer_name = slice_to_string(&save[save_slot.sector_offset(1) as usize][0..=6]);
-
-        SaveStruct {
-            save_slot,
+        Self {
+            slot_info,
             trainer_id,
             trainer_name,
         }
@@ -38,18 +33,106 @@ impl SaveStruct {
 }
 
 #[derive(Debug)]
-enum SaveSlot {
-    A = 0,
-    B = 1,
+struct SlotInfo {
+    slot_used: Option<SaveSlot>,
+    slot_a: SlotStruct,
+    slot_b: SlotStruct,
 }
 
-impl SaveSlot {
-    fn sector_offset(&self, sector_id: u8) -> u8 {
-        match self {
-            SaveSlot::A => sector_id,
-            SaveSlot::B => sector_id + 14,
+impl SlotInfo {
+    /// Find out the slot from given save
+    fn from_save(save: Save) -> Self {
+        let slot_a = SlotStruct::from_slot(save.to_slot_a());
+        let slot_b = SlotStruct::from_slot(save.to_slot_b());
+
+        let slot_used = SlotInfo::get_slot(&slot_a, &slot_b);
+
+        Self {
+            slot_used,
+            slot_a,
+            slot_b,
         }
     }
+
+    fn get_slot(slot_a: &SlotStruct, slot_b: &SlotStruct) -> Option<SaveSlot> {
+        if slot_a.status == SaveStatus::Valid && slot_b.status == SaveStatus::Valid {
+            if slot_a.counter == u32::MAX && slot_b.counter == 0
+                || slot_b.counter == u32::MAX && slot_a.counter == 0
+            {
+                if slot_a.counter < slot_b.counter {
+                    return Some(SaveSlot::A);
+                }
+
+                return Some(SaveSlot::B);
+            }
+
+            if slot_a.counter < slot_b.counter {
+                return Some(SaveSlot::B);
+            }
+
+            return Some(SaveSlot::A);
+        }
+
+        if slot_a.status == SaveStatus::Valid {
+            return Some(SaveSlot::A);
+        }
+
+        if slot_b.status == SaveStatus::Valid {
+            return Some(SaveSlot::B);
+        }
+
+        None
+    }
+}
+
+#[derive(Debug)]
+struct SlotStruct {
+    counter: u32,
+    status: SaveStatus,
+}
+
+impl SlotStruct {
+    fn from_slot(slot: Slot) -> Self {
+        let mut slot_struct = Self {
+            counter: 0,
+            status: SaveStatus::Empty,
+        };
+
+        let mut security_passed = false;
+
+        for sector in slot.iter() {
+            if LittleEndian::read_u32(&sector[0xFF8..=0xFFB]) == SECURITY_VALUE {
+                security_passed = true;
+
+                if !is_valid_sector(sector) {
+                    slot_struct.counter = get_save_counter(&slot[slot.len() - 1]);
+                    slot_struct.status = SaveStatus::Corrupt;
+
+                    return slot_struct;
+                }
+            }
+        }
+
+        if security_passed {
+            slot_struct.counter = get_save_counter(&slot[slot.len() - 1]);
+            slot_struct.status = SaveStatus::Valid;
+        }
+
+        slot_struct
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum SaveSlot {
+    A = 0,
+    B = 14,
+}
+
+#[derive(Debug, PartialEq)]
+enum SaveStatus {
+    Empty = 0,
+    Valid = 1,
+    Corrupt = 2,
 }
 
 #[derive(Debug)]
@@ -67,40 +150,7 @@ impl TrainerID {
     }
 }
 
-/// Find out the slot from given save
-fn slot_from_save(save: Save) -> Option<SaveSlot> {
-    let mut save_index: u32 = get_save_index(save[0]);
-    let mut save_slot = None;
-
-    for sector_id in 0..=27 {
-        let retrieved_index = get_save_index(save[sector_id]);
-
-        if sector_id == 14 {
-            if save_index != u32::MAX && retrieved_index < save_index {
-                save_slot = Some(SaveSlot::A);
-            } else if save_index == u32::MAX || retrieved_index > save_index {
-                save_slot = Some(SaveSlot::B);
-            } else {
-                eprintln!("Slot A and B has the same save_index");
-
-                return None;
-            }
-
-            save_index = retrieved_index;
-        } else if sector_id != 0 && save_index != retrieved_index {
-            eprintln!(
-                "Sector {} has an invalid save_index, expected \"{}\" but got \"{}\"",
-                sector_id, save_index, retrieved_index
-            );
-
-            return None;
-        }
-    }
-
-    save_slot
-}
-
 /// Gets the save index from a sector
-fn get_save_index(sector: Sector) -> u32 {
+fn get_save_counter(sector: &Sector) -> u32 {
     LittleEndian::read_u32(&sector[0x0FFC..=0x0FFF])
 }

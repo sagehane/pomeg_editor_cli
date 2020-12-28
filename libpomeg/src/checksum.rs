@@ -1,27 +1,13 @@
-use crate::save::{Save, Sector};
+use crate::save::Sector;
 use byteorder::{ByteOrder, LittleEndian};
 
 const SECTOR_SIZE: [u16; 14] = [
     3884, 3968, 3968, 3968, 3848, 3968, 3968, 3968, 3968, 3968, 3968, 3968, 3968, 2000,
 ];
 
-/// Checks if the save file has the correct checksum. Currently only checks through sectors 0 to
-/// 27, leaving 28 to 31 unchecked.
-pub fn is_valid_checksum(buffer: Save) -> bool {
-    for sector_id in 0..=31 {
-        if !is_valid_sector(buffer[sector_id]) {
-            eprintln!("Sector {} has an invalid checksum", sector_id);
-
-            return false;
-        }
-    }
-
-    true
-}
-
 /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
 /// offset of 0xff4 with the value from `calculate_checksum`.
-fn is_valid_sector(sector: Sector) -> bool {
+pub fn is_valid_sector(sector: &Sector) -> bool {
     let section_id = *&sector[0xFF4];
 
     if section_id == u8::MAX {
