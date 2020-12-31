@@ -15,10 +15,10 @@ const INTERNATIONAL_ENCODING: [&str; 256] = [
     "ä", "ö", "ü", " ", " ", " ", " ", " ", " ", " ", "\n", "",
 ];
 
-pub fn slice_to_string(trainer_name: &[u8]) -> String {
+pub fn slice_to_string(slice: &[u8]) -> String {
     let mut name = String::new();
 
-    for b in trainer_name.iter() {
+    for b in slice.iter() {
         if *b == u8::MAX {
             return name;
         }

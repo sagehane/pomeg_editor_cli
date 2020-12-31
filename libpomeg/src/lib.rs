@@ -2,6 +2,7 @@ use crate::checksum::is_valid_sector;
 use crate::encoding::slice_to_string;
 pub use crate::save::{DataStructure, Save, Sector, Slot, ToSlot};
 use byteorder::{ByteOrder, LittleEndian};
+use std::convert::TryInto;
 
 mod checksum;
 mod encoding;
@@ -12,22 +13,22 @@ const SECURITY_VALUE: u32 = 0x8012025;
 #[derive(Debug)]
 pub struct SaveStruct {
     slot_info: SlotInfo,
-    trainer_id: TrainerID,
-    trainer_name: String,
+    trainer: Trainer,
+    gender: Gender,
 }
 
 impl SaveStruct {
     pub fn from_save(save: Save) -> Self {
         let slot_info = SlotInfo::from_save(save);
 
-        let trainer_id = TrainerID::from_sector(save[slot_info.slot_used.unwrap() as usize + 1]);
+        let trainer = Trainer::from_sector(&save[slot_info.slot_used.unwrap() as usize + 1]);
 
-        let trainer_name = slice_to_string(&save[slot_info.slot_used.unwrap() as usize + 1][0..=6]);
+        let gender = Gender::from_sector(&save[slot_info.slot_used.unwrap() as usize + 1]);
 
         Self {
             slot_info,
-            trainer_id,
-            trainer_name,
+            trainer,
+            gender,
         }
     }
 }
@@ -138,18 +139,51 @@ enum SaveStatus {
     Corrupt = 2,
 }
 
-#[derive(Debug)]
-struct TrainerID {
+struct Trainer {
+    name: [u8; 7],
     public: u16,
     secret: u16,
 }
 
-impl TrainerID {
-    fn from_sector(sector: Sector) -> Self {
+impl Trainer {
+    fn from_sector(sector: &Sector) -> Self {
+        let name = sector[0..=6].try_into().unwrap();
         let public = LittleEndian::read_u16(&sector[0xA..=0xB]);
         let secret = LittleEndian::read_u16(&sector[0xD..=0xE]);
 
-        TrainerID { public, secret }
+        Trainer {
+            name,
+            public,
+            secret,
+        }
+    }
+}
+
+impl std::fmt::Debug for Trainer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Trainer")
+            .field("name", &slice_to_string(&self.name))
+            .field("public", &format!("{:05}", self.public))
+            .field("secret", &format!("{:05}", self.secret))
+            .finish()
+    }
+}
+
+#[derive(Debug)]
+enum Gender {
+    Boy = 0,
+    Girl = 1,
+}
+
+impl Gender {
+    fn from_sector(sector: &Sector) -> Self {
+        let gender = sector[0x8];
+
+        return match gender {
+            0 => Gender::Boy,
+            1 => Gender::Girl,
+            _ => panic!("Gender should be 0 or 1"),
+        };
     }
 }
 

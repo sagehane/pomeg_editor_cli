@@ -18,5 +18,5 @@ fn main() {
 
     let gen3save = SaveStruct::from_save(Save::from_slice(&buffer));
 
-    println!("{:?}", gen3save);
+    println!("{:#?}", gen3save);
 }
