@@ -1,31 +1,33 @@
-use crate::save::Sector;
+pub use crate::save::Sector;
 use byteorder::{ByteOrder, LittleEndian};
 
 const SECTOR_SIZE: [u16; 14] = [
     3884, 3968, 3968, 3968, 3848, 3968, 3968, 3968, 3968, 3968, 3968, 3968, 3968, 2000,
 ];
 
-/// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
-/// offset of 0xff4 with the value from `calculate_checksum`.
-pub fn is_valid_sector(sector: &Sector) -> bool {
-    let section_id = *&sector[0xFF4];
+impl Sector {
+    /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
+    /// offset of 0xff4 with the value from `calculate_checksum`.
+    pub fn is_valid(&self) -> bool {
+        let section_id = self.0[0xFF4];
 
-    if section_id == u8::MAX {
-        println!("Checksum skipped");
+        if section_id == u8::MAX {
+            println!("Checksum skipped");
 
-        return true;
+            return true;
+        }
+
+        let calculated_checksum =
+            calculate_checksum(&self.0[..SECTOR_SIZE[section_id as usize] as usize]);
+
+        let checksum = LittleEndian::read_u16(&self.0[0xFF6..=0xFF7]);
+
+        if calculated_checksum != checksum {
+            return false;
+        }
+
+        true
     }
-
-    let calculated_checksum =
-        calculate_checksum(&sector[..SECTOR_SIZE[section_id as usize] as usize]);
-
-    let checksum = LittleEndian::read_u16(&sector[0xFF6..=0xFF7]);
-
-    if calculated_checksum != checksum {
-        return false;
-    }
-
-    true
 }
 
 /// Separates a slice into litte-endian u32 values, gets the total sum of the slice, and gets the

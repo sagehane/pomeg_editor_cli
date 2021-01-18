@@ -1,6 +1,6 @@
-use std::{fs, io::Read};
+use std::{convert::TryInto, fs, io::Read};
 
-use libpomeg::{DataStructure, Save, SaveStruct};
+use libpomeg::{Save, SaveStruct};
 
 fn main() {
     let file = std::env::args().nth(1).expect("no file given"); // The program expects a file for an argument
@@ -16,7 +16,7 @@ fn main() {
         .read_exact(&mut buffer[..])
         .expect("could not read file");
 
-    let gen3save = SaveStruct::from_save(Save::from_slice(&buffer));
+    let gen3save = SaveStruct::from_save(Save::from_array(buffer.try_into().unwrap()));
 
     println!("{:#?}", gen3save);
 }

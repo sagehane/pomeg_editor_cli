@@ -1,6 +1,6 @@
-use crate::checksum::is_valid_sector;
+use crate::checksum::Sector;
 use crate::encoding::slice_to_string;
-pub use crate::save::{DataStructure, Save, Sector, Slot, ToSlot};
+pub use crate::save::{Save, Slot};
 use byteorder::{ByteOrder, LittleEndian};
 use std::convert::TryInto;
 
@@ -21,9 +21,9 @@ impl SaveStruct {
     pub fn from_save(save: Save) -> Self {
         let slot_info = SlotInfo::from_save(save);
 
-        let trainer = Trainer::from_sector(&save[slot_info.slot_used.unwrap() as usize + 1]);
+        let trainer = Trainer::from_sector(&save.0[slot_info.slot_used.unwrap() as usize + 1]);
 
-        let gender = Gender::from_sector(&save[slot_info.slot_used.unwrap() as usize + 1]);
+        let gender = Gender::from_sector(&save.0[slot_info.slot_used.unwrap() as usize + 1]);
 
         Self {
             slot_info,
@@ -43,8 +43,8 @@ struct SlotInfo {
 impl SlotInfo {
     /// Find out the slot from given save
     fn from_save(save: Save) -> Self {
-        let slot_a = SlotStruct::from_slot(save.to_slot_a());
-        let slot_b = SlotStruct::from_slot(save.to_slot_b());
+        let slot_a = SlotStruct::from_slot(save.to_slot(0));
+        let slot_b = SlotStruct::from_slot(save.to_slot(1));
 
         let slot_used = SlotInfo::get_slot(&slot_a, &slot_b);
 
@@ -104,11 +104,11 @@ impl SlotStruct {
         let mut security_passed = false;
 
         for sector in slot.iter() {
-            if LittleEndian::read_u32(&sector[0xFF8..=0xFFB]) == SECURITY_VALUE {
+            if LittleEndian::read_u32(&sector.0[0xFF8..=0xFFB]) == SECURITY_VALUE {
                 security_passed = true;
 
-                if is_valid_sector(sector) {
-                    slot_struct.counter = get_save_counter(sector);
+                if sector.is_valid() {
+                    slot_struct.counter = sector.get_save_counter();
                     passed_checksum += 1;
                 }
             }
@@ -147,9 +147,9 @@ struct Trainer {
 
 impl Trainer {
     fn from_sector(sector: &Sector) -> Self {
-        let name = sector[0..=6].try_into().unwrap();
-        let public = LittleEndian::read_u16(&sector[0xA..=0xB]);
-        let secret = LittleEndian::read_u16(&sector[0xD..=0xE]);
+        let name = sector.0[0..=6].try_into().unwrap();
+        let public = LittleEndian::read_u16(&sector.0[0xA..=0xB]);
+        let secret = LittleEndian::read_u16(&sector.0[0xD..=0xE]);
 
         Trainer {
             name,
@@ -177,7 +177,7 @@ enum Gender {
 
 impl Gender {
     fn from_sector(sector: &Sector) -> Self {
-        let gender = sector[0x8];
+        let gender = sector.0[0x8];
 
         return match gender {
             0 => Gender::Boy,
@@ -185,9 +185,4 @@ impl Gender {
             _ => panic!("Gender should be 0 or 1"),
         };
     }
-}
-
-/// Gets the save index from a sector
-fn get_save_counter(sector: &Sector) -> u32 {
-    LittleEndian::read_u32(&sector[0x0FFC..=0x0FFF])
 }
