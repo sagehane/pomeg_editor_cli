@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 libpomeg = { version = "0.1.0", path = "libpomeg" }
+clap = "2.33.3"
 
 [workspace]
 members = [

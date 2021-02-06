@@ -1,9 +1,19 @@
 use std::{convert::TryInto, fs, io::Read};
 
+use clap::{App, Arg};
 use libpomeg::{Save, SaveStruct};
 
 fn main() {
-    let file = std::env::args().nth(1).expect("no file given"); // The program expects a file for an argument
+    let matches = App::new("Pomeg Editor")
+        .arg(
+            Arg::with_name("INPUT")
+                .help("Sets the input file to use")
+                .required(true)
+                .index(1),
+        )
+        .get_matches();
+
+    let file = matches.value_of("INPUT").unwrap();
 
     if fs::metadata(&file).unwrap().len() != 0x20000 {
         panic!("Invalid file size, should be 128 KiB");
