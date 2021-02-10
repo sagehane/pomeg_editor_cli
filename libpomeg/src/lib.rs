@@ -93,39 +93,51 @@ struct SlotStruct {
 }
 
 impl SlotStruct {
+    /// Determines whether the slot status is empty, corrupt, or valid, along with the counter.
+    ///
+    /// If the security check never passes, the slot is empty.
+    /// If all sectors pass the check, the slot is valid.
+    /// Anything else should result in a corrupt slot.
+    ///
+    /// If no slots are valid, the save counter must be 0.
+    /// Otherwise, the save counter value is derived from the last valid sector.
     fn from_slot(slot: Slot) -> Self {
-        let mut passed_checksum = 0;
-
         let mut slot_struct = Self {
             counter: 0,
             status: SaveStatus::Empty,
         };
 
-        let mut security_passed = false;
+        let mut checksums_passed = 0;
 
-        for sector in slot.iter() {
+        // Iterate from the last sector to retrieve the last valid save counter
+        for (loop_count, sector) in slot.iter().rev().enumerate() {
+            // If this check passes, the slot cannot be empty
             if LittleEndian::read_u32(&sector.0[0xFF8..=0xFFB]) == SECURITY_VALUE {
-                security_passed = true;
+                slot_struct.status = SaveStatus::Corrupt;
 
                 if sector.is_valid() {
-                    slot_struct.counter = sector.get_save_counter();
-                    passed_checksum += 1;
+                    // Sets the counter to the value from the last valid sector
+                    if checksums_passed == 0 {
+                        slot_struct.counter = sector.get_save_counter();
+                    }
+
+                    checksums_passed += 1;
                 }
+            }
+
+            // Breaks loop if the counter is known and the slot is guaranteed to be corrupt
+            if checksums_passed != 0 && checksums_passed != loop_count + 1 {
+                break;
             }
         }
 
-        if security_passed {
-            if passed_checksum == slot.len() {
-                slot_struct.status = SaveStatus::Valid;
-            } else {
-                slot_struct.status = SaveStatus::Corrupt;
-            }
+        if checksums_passed == 14 {
+            slot_struct.status = SaveStatus::Valid;
         }
 
         slot_struct
     }
 }
-
 #[derive(Debug, Clone, Copy)]
 enum SaveSlot {
     A = 0,
