@@ -8,13 +8,12 @@ const SECTOR_SIZE: [u16; 14] = [
 impl Sector {
     /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
     /// offset of 0xff4 with the value from `calculate_checksum`.
-    pub fn is_valid(&self) -> bool {
+    pub fn checksum_passed(&self) -> bool {
         let section_id = self.0[0xFF4];
 
-        if section_id == u8::MAX {
-            println!("Checksum skipped");
-
-            return true;
+        // Section ID cannot be 14 or above
+        if section_id >= 14 {
+            return false;
         }
 
         let calculated_checksum =

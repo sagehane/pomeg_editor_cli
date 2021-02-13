@@ -113,7 +113,7 @@ impl SlotStruct {
             if sector.security_passed() {
                 slot_struct.status = SaveStatus::Corrupt;
 
-                if sector.is_valid() {
+                if sector.checksum_passed() {
                     // The counter should be determined by the last valid sector
                     if checksums_passed == 0 {
                         slot_struct.counter = sector.get_save_counter();
