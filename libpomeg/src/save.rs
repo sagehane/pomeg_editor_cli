@@ -47,6 +47,12 @@ impl Sector {
     pub fn get_save_counter(&self) -> u32 {
         LittleEndian::read_u32(&self.0[0x0FFC..=0x0FFF])
     }
+
+    pub fn security_passed(&self) -> bool {
+        const SECURITY_VALUE: u32 = 0x8012025;
+
+        LittleEndian::read_u32(&self.0[0xFF8..=0xFFB]) == SECURITY_VALUE
+    }
 }
 
 pub type Slot = [Sector; 14];

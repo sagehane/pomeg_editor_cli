@@ -8,8 +8,6 @@ mod checksum;
 mod encoding;
 mod save;
 
-const SECURITY_VALUE: u32 = 0x8012025;
-
 #[derive(Debug)]
 pub struct SaveStruct {
     slot_info: SlotInfo,
@@ -112,11 +110,11 @@ impl SlotStruct {
         // Iterate from the last sector to retrieve the last valid save counter
         for (loop_count, sector) in slot.iter().rev().enumerate() {
             // If this check passes, the slot cannot be empty
-            if LittleEndian::read_u32(&sector.0[0xFF8..=0xFFB]) == SECURITY_VALUE {
+            if sector.security_passed() {
                 slot_struct.status = SaveStatus::Corrupt;
 
                 if sector.is_valid() {
-                    // Sets the counter to the value from the last valid sector
+                    // The counter should be determined by the last valid sector
                     if checksums_passed == 0 {
                         slot_struct.counter = sector.get_save_counter();
                     }
