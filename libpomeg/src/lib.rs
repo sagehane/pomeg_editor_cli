@@ -41,9 +41,9 @@ struct Trainer {
 
 impl Trainer {
     fn from_sector(sector: &Sector) -> Self {
-        let name = sector.0[0..=6].try_into().unwrap();
-        let public = LittleEndian::read_u16(&sector.0[0xA..=0xB]);
-        let secret = LittleEndian::read_u16(&sector.0[0xD..=0xE]);
+        let name = sector.data[0..=6].try_into().unwrap();
+        let public = LittleEndian::read_u16(&sector.data[0xA..=0xB]);
+        let secret = LittleEndian::read_u16(&sector.data[0xD..=0xE]);
 
         Trainer {
             name,
@@ -71,7 +71,7 @@ enum Gender {
 
 impl Gender {
     fn from_sector(sector: &Sector) -> Self {
-        let gender = sector.0[0x8];
+        let gender = sector.data[0x8];
 
         return match gender {
             0 => Gender::Boy,

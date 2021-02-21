@@ -14,15 +14,15 @@ impl Save {
         let sectors = [Sector::new(); 0x20];
         let slot_used = None;
 
-        Save { sectors, slot_used }
+        Self { sectors, slot_used }
     }
 
     pub fn from_buffer(buffer: Buffer) -> Self {
         let mut save = Save::new();
 
-        for sector_id in 0..=31 {
-            let offset = sector_id << 12;
-            save.sectors[sector_id] = Sector::from_slice(&buffer[offset..offset + 0x1000]);
+        for sectors in 0..=31 {
+            let offset = sectors << 12;
+            save.sectors[sectors] = Sector::from_slice(&buffer[offset..offset + 0x1000]);
         }
 
         save.get_slot()
@@ -49,26 +49,40 @@ impl Save {
 }
 
 #[derive(Copy, Clone)]
-pub struct Sector(pub [u8; 0x1000]);
+pub struct Sector {
+    pub data: [u8; 0x1000],
+    pub section_id: u8,
+    save_index: u32,
+    security_value: u32,
+}
 
 impl Sector {
     fn new() -> Self {
-        Sector([0; 0x1000])
+        let data = [0; 0x1000];
+        let section_id = 0xFF;
+        let save_index = 0;
+        let security_value = 0;
+
+        Self {
+            data,
+            section_id,
+            save_index,
+            security_value,
+        }
     }
 
     fn from_slice(slice: &[u8]) -> Self {
-        Sector(slice.try_into().unwrap())
-    }
+        let data = slice.try_into().unwrap();
+        let section_id = slice[0xFF4];
+        let save_index = LittleEndian::read_u32(&slice[0x0FFC..=0x0FFF]);
+        let security_value = LittleEndian::read_u32(&slice[0xFF8..=0xFFB]);
 
-    /// Gets the save index from a sector
-    pub fn get_save_counter(&self) -> u32 {
-        LittleEndian::read_u32(&self.0[0x0FFC..=0x0FFF])
-    }
-
-    pub fn security_passed(&self) -> bool {
-        const SECURITY_VALUE: u32 = 0x8012025;
-
-        LittleEndian::read_u32(&self.0[0xFF8..=0xFFB]) == SECURITY_VALUE
+        Sector {
+            data,
+            section_id,
+            save_index,
+            security_value,
+        }
     }
 }
 
@@ -138,13 +152,13 @@ impl SlotStruct {
         // Iterate from the last sector to retrieve the last valid save counter
         for (loop_count, sector) in slot.iter().rev().enumerate() {
             // If this check passes, the slot cannot be empty
-            if sector.security_passed() {
+            if sector.security_value == 0x8012025 {
                 slot_struct.status = SlotStatus::Corrupt;
 
                 if sector.checksum_passed() {
                     // The counter should be determined by the last valid sector
                     if checksums_passed == 0 {
-                        slot_struct.counter = sector.get_save_counter();
+                        slot_struct.counter = sector.save_index;
                     }
 
                     checksums_passed += 1;

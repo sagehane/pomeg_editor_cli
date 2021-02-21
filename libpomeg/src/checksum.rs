@@ -9,17 +9,15 @@ impl Sector {
     /// Checks if the checksum of a sector is valid by comparing the value of the two bytes stored in
     /// offset of 0xff4 with the value from `calculate_checksum`.
     pub fn checksum_passed(&self) -> bool {
-        let section_id = self.0[0xFF4];
-
         // Section ID cannot be 14 or above
-        if section_id >= 14 {
+        if self.section_id >= 14 {
             return false;
         }
 
         let calculated_checksum =
-            calculate_checksum(&self.0[..SECTOR_SIZE[section_id as usize] as usize]);
+            calculate_checksum(&self.data[..SECTOR_SIZE[self.section_id as usize] as usize]);
 
-        let checksum = LittleEndian::read_u16(&self.0[0xFF6..=0xFF7]);
+        let checksum = LittleEndian::read_u16(&self.data[0xFF6..=0xFF7]);
 
         if calculated_checksum != checksum {
             return false;
