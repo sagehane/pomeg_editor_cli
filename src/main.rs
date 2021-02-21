@@ -26,7 +26,7 @@ fn main() {
         .read_exact(&mut buffer[..])
         .expect("could not read file");
 
-    let gen3save = SaveStruct::from_save(Save::from_array(buffer.try_into().unwrap()));
+    let gen3save = SaveStruct::from_save(Save::from_buffer(buffer.try_into().unwrap()));
 
     println!("{:#?}", gen3save);
 }
